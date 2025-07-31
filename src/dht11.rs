@@ -54,13 +54,20 @@ impl From<&Pin<Input<Floating>>> for Signal {
 }
 
 impl DHT11<Initialized> {
+    fn read_signal(&self) -> Signal {
+        (&self.0).into()
+    }
+
+    fn read_signal_after(&self, after_ms: u32) -> Signal {
+        delay_ms(after_ms);
+        self.read_signal()
+    }
+
     fn read_sensor_bit(&self) -> Result<u32, (Signal, Signal, Signal)> {
         // Gather
-        let first = (&self.0).into();
-        delay_ms(50);
-        let second = (&self.0).into();
-        delay_ms(28);
-        let third = (&self.0).into();
+        let first = self.read_signal();
+        let second = self.read_signal_after(50);
+        let third = self.read_signal_after(28);
         match (first, second, third) {
             (Signal::Low, Signal::High, Signal::Low) => Ok(0),
             (Signal::Low, Signal::High, Signal::High) => Ok(1),
@@ -77,16 +84,12 @@ impl DHT11<Initialized> {
         output.set_low();
         delay_ms(18);
         output.set_high();
-        delay_ms(18);
-        output.set_low();
 
         self.0 = output.into_floating_input();
 
         // read the acknowledge, echo response
-        delay_ms(80);
-        let first = (&self.0).into();
-        delay_ms(80);
-        let second = (&self.0).into();
+        let first = self.read_signal_after(80);
+        let second = self.read_signal_after(80);
 
         match (first, second) {
             (Signal::Low, Signal::High) => {
