@@ -19,13 +19,15 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut usart = SerialWriter::new(arduino_hal::default_serial!(dp, pins, 57600));
 
-    let mut sensor = DHT11::new(pins.d12.downgrade()).init();
+    let mut sensor = DHT11::new(
+        pins.d12.downgrade().into_pull_up_input(),
+        pins.d11.downgrade().into_output(),
+    )
+    .init();
 
     loop {
         delay_ms(1000);
-        let (ret_sensor, reading_result) = sensor.read();
-        sensor = ret_sensor;
-        let _result = match reading_result {
+        let _result = match sensor.read() {
             Ok(reading) => write!(
                 usart,
                 "Sensor reading: Temperature {}° C, Humidity {}%\n",
