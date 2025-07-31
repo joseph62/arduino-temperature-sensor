@@ -78,7 +78,7 @@ impl DHT11<Initialized> {
     fn read_sensor_bits(&self, number_of_bits: u32) -> Result<u32, DHT11ReadingError> {
         let mut result = 0;
 
-        for bit_index in 0..number_of_bits {
+        for bit_index in 0..number_of_bits.min(32) {
             match self.read_sensor_bit() {
                 Ok(bit) => {
                     result = result & (bit << bit_index);
