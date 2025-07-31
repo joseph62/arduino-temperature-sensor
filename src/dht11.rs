@@ -8,21 +8,16 @@ use arduino_hal::{
     },
 };
 
+#[derive(Debug)]
+pub struct DHT11Reading {
+    pub temperature: u16,
+    pub humidity: u16,
+}
+
 pub struct DHT11<INIT>(Pin<Input<Floating>>, PhantomData<INIT>);
 
 pub struct Initialized;
 pub struct Uninitialized;
-
-impl DHT11<Uninitialized> {
-    pub fn new(pin: Pin<Input<Floating>>) -> Self {
-        Self(pin, PhantomData)
-    }
-
-    pub fn init(self) -> DHT11<Initialized> {
-        delay_ms(1000); // Wait for 1s for the sensor to stabilize
-        DHT11(self.0, PhantomData)
-    }
-}
 
 #[derive(Debug)]
 pub enum DHT11ReadingError {
@@ -35,6 +30,17 @@ pub enum DHT11ReadingError {
 pub enum Signal {
     High,
     Low,
+}
+
+impl DHT11<Uninitialized> {
+    pub fn new(pin: Pin<Input<Floating>>) -> Self {
+        Self(pin, PhantomData)
+    }
+
+    pub fn init(self) -> DHT11<Initialized> {
+        delay_ms(1000); // Wait for 1s for the sensor to stabilize
+        DHT11(self.0, PhantomData)
+    }
 }
 
 impl From<&Pin<Input<Floating>>> for Signal {
@@ -65,7 +71,8 @@ impl DHT11<Initialized> {
         let mut reading = 0u32;
         let mut parity = 0u32;
 
-        // Signal that we want to read
+        // Signal that we want to read by driving the data pin
+        // low and the resetting high
         let mut output = self.0.into_output();
         output.set_low();
         delay_ms(18);
@@ -75,7 +82,7 @@ impl DHT11<Initialized> {
 
         self.0 = output.into_floating_input();
 
-        // read acknowledge
+        // read the acknowledge, echo response
         delay_ms(80);
         let first = (&self.0).into();
         delay_ms(80);
@@ -88,8 +95,10 @@ impl DHT11<Initialized> {
             signals => return (self, Err(DHT11ReadingError::SensorUnresponsive(signals))),
         };
 
+        // wait a bit to catch the signalling timing right
         delay_ms(5);
-        // read temperature and humidity
+
+        // read 16 signals as bits for temperature and then another 16 for humidity
         for bit_index in 0..32 {
             match self.read_sensor_bit() {
                 Ok(bit) => {
@@ -104,7 +113,7 @@ impl DHT11<Initialized> {
             }
         }
 
-        // read parity
+        // read the next 8 signals as parity bits
         for bit_index in 0..8 {
             match self.read_sensor_bit() {
                 Ok(bit) => {
@@ -133,10 +142,4 @@ impl DHT11<Initialized> {
 
         (self, Ok(reading))
     }
-}
-
-#[derive(Debug)]
-pub struct DHT11Reading {
-    pub temperature: u16,
-    pub humidity: u16,
 }
