@@ -6,7 +6,7 @@ mod serial;
 
 use core::fmt::Write;
 
-use arduino_hal::delay_ms;
+use arduino_hal::{Delay, delay_ms};
 
 use panic_halt as _;
 
@@ -22,6 +22,7 @@ fn main() -> ! {
     let mut sensor = DHT11::new(
         pins.d12.downgrade().into_pull_up_input(),
         pins.d11.downgrade().into_output(),
+        Delay::new(),
     )
     .init();
 
@@ -38,15 +39,21 @@ fn main() -> ! {
                 "Sensor reading: Temperature {}° C, Humidity {}%, parity check failure\n",
                 reading.temperature, reading.humidity
             ),
-            Err(DHT11ReadingError::SensorUnresponsive(ref readings)) => {
+            Err(DHT11ReadingError::SensorUnresponsive(readings)) => {
                 write!(usart, "Sensor unresponsive: Readings {:?}\n", readings)
             }
-            Err(DHT11ReadingError::BadSignalInterpretation(ref readings)) => {
+            Err(DHT11ReadingError::BadSignalInterpretation(readings)) => {
                 write!(
                     usart,
                     "Sensor response bit misinterpretation: Readings {:?}\n",
                     readings
                 )
+            }
+            Err(DHT11ReadingError::UnableToReadSignal) => {
+                write!(usart, "Unable to read signals for Sensor\n")
+            }
+            Err(DHT11ReadingError::UnableToWriteSignal) => {
+                write!(usart, "Unable to write signals for Sensor\n")
             }
         };
     }
