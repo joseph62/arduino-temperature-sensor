@@ -58,7 +58,10 @@ impl DHT11<Initialized> {
     }
 
     fn read_sensor_bit(&self) -> Result<u32, (Signal, Signal, Signal)> {
-        // Gather
+        // A bit signal set always starts low.
+        // The difference between 1 and 0 is how quickly the pin
+        // goes from high to low. A 0 indicates the pin went from high
+        // to low in 28ish ms. A 1 indicates the pin stayed high for 70 ms
         let first = self.read_signal();
         let second = self.read_signal_after(50);
         let third = self.read_signal_after(28);
@@ -109,7 +112,7 @@ impl DHT11<Initialized> {
             signals => return Err(DHT11ReadingError::SensorUnresponsive(signals)),
         };
 
-        // wait a bit to catch the signalling timing right
+        // wait a bit to catch the signal timing right
         delay_ms(5);
 
         // read 16 signals as bits for temperature and then another 16 for humidity
