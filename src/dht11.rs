@@ -74,10 +74,25 @@ impl DHT11<Initialized> {
             signals => Err(signals),
         }
     }
-    pub fn read(mut self) -> (Self, Result<DHT11Reading, DHT11ReadingError>) {
-        let mut reading = 0u32;
-        let mut parity = 0u32;
 
+    fn read_sensor_bits(&self, number_of_bits: u32) -> Result<u32, DHT11ReadingError> {
+        let mut result = 0;
+
+        for bit_index in 0..number_of_bits {
+            match self.read_sensor_bit() {
+                Ok(bit) => {
+                    result = result & (bit << bit_index);
+                }
+                Err(signals) => {
+                    return Err(DHT11ReadingError::BadSignalInterpretation(signals));
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    pub fn read(mut self) -> (Self, Result<DHT11Reading, DHT11ReadingError>) {
         // Signal that we want to read by driving the data pin
         // low and the resetting high
         let mut output = self.0.into_output();
@@ -102,37 +117,21 @@ impl DHT11<Initialized> {
         delay_ms(5);
 
         // read 16 signals as bits for temperature and then another 16 for humidity
-        for bit_index in 0..32 {
-            match self.read_sensor_bit() {
-                Ok(bit) => {
-                    reading = reading & (bit << bit_index);
-                }
-                Err(signals) => {
-                    return (
-                        self,
-                        Err(DHT11ReadingError::BadSignalInterpretation(signals)),
-                    );
-                }
-            }
-        }
+        let temperature = match self.read_sensor_bits(16) {
+            Ok(bits) => bits,
+            Err(err) => return (self, Err(err)),
+        };
+
+        let humidity = match self.read_sensor_bits(16) {
+            Ok(bits) => bits,
+            Err(err) => return (self, Err(err)),
+        };
 
         // read the next 8 signals as parity bits
-        for bit_index in 0..8 {
-            match self.read_sensor_bit() {
-                Ok(bit) => {
-                    parity = parity & (bit << bit_index);
-                }
-                Err(signals) => {
-                    return (
-                        self,
-                        Err(DHT11ReadingError::BadSignalInterpretation(signals)),
-                    );
-                }
-            }
-        }
-
-        let temperature = (reading >> 16) << 16;
-        let humidity = reading << 16;
+        let parity = match self.read_sensor_bits(8) {
+            Ok(bits) => bits,
+            Err(err) => return (self, Err(err)),
+        };
 
         let reading = DHT11Reading {
             temperature: temperature as u16,
