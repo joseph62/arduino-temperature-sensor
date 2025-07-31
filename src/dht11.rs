@@ -43,19 +43,13 @@ impl DHT11<Uninitialized> {
     }
 }
 
-impl From<&Pin<Input<Floating>>> for Signal {
-    fn from(value: &Pin<Input<Floating>>) -> Self {
-        if value.is_high() {
-            Self::High
-        } else {
-            Self::Low
-        }
-    }
-}
-
 impl DHT11<Initialized> {
     fn read_signal(&self) -> Signal {
-        (&self.0).into()
+        if self.0.is_high() {
+            Signal::High
+        } else {
+            Signal::Low
+        }
     }
 
     fn read_signal_after(&self, after_ms: u32) -> Signal {
